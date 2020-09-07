@@ -26,28 +26,27 @@ def allowed_file(filename):
 
 @app.route('/')
 def hello():
-    return "Hello World!"
+    return "Welcome to Shrey's Image Repository!"
 
-@app.route('/upload/image', methods=['POST'])
+@app.route('/upload/images', methods=['POST'])
 def upload():
-    if request.method == 'POST':
-        # check if the post request has the file part
-        if 'file' not in request.files:
-            print('No file part')
-            return redirect(request.url)
-        file = request.files['file']
-        # if user does not select file, browser also
-        # submit an empty part without filename
-        if file.filename == '':
-            print('No selected file')
-            return redirect(request.url)
-        if file and allowed_file(file.filename):
-            # filename = secure_filename(file.filename)
-            filename = "test.jpg"
-            file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
-            return redirect(url_for('uploaded_file',
-                                    filename=filename))
-    return "Hello World!"
+    """
+        Expected request must have Body->form-data of files (>=1)
+    """
+    # check if the post request has the files part
+    if 'files' not in request.files:
+        return {"msg": "No files included in form-data"}, 400
+
+    images = [x for x in request.files.getlist('files') if allowed_file(x.filename)]
+
+    if len(images):
+        for img in images:
+            filename = img.filename
+            #TODO: create uuid names and send back mapping
+            img.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+        return {"msg": "Successfully uploaded images.", "tags": "TEST"}, 200
+    else:
+        return {"msg": "No images received. Make sure they are of types {}".format(ALLOWED_EXTENSIONS)}, 400
 
 @app.route('/uploads/<filename>')
 def uploaded_file(filename):
