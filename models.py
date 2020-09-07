@@ -1,5 +1,6 @@
-from app import db
 import uuid
+
+from app import db
 from sqlalchemy.dialects.postgresql import JSON, UUID
 
 class Result(db.Model):

@@ -1,5 +1,6 @@
 
 import os
+import uuid
 
 from flask import Flask, request, redirect, url_for, send_from_directory
 from flask_sqlalchemy import SQLAlchemy
@@ -32,6 +33,11 @@ def hello():
 def upload():
     """
         Expected request must have Body->form-data of files (>=1)
+        Response:
+            {
+                "msg": "Successfully uploaded images.", 
+                "filekeys": {"filename": "filekey", ...}
+            }
     """
     # check if the post request has the files part
     if 'files' not in request.files:
@@ -40,18 +46,23 @@ def upload():
     images = [x for x in request.files.getlist('files') if allowed_file(x.filename)]
 
     if len(images):
+        filemap = {}
         for img in images:
-            filename = img.filename
-            #TODO: create uuid names and send back mapping
-            img.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
-        return {"msg": "Successfully uploaded images.", "tags": "TEST"}, 200
+            # create unique keys/names and send back mapping
+            ext = img.filename.rsplit('.', 1)[1].lower()
+            filekey = str(uuid.uuid4())
+            new_filename = "{}.{}".format(filekey, ext)
+            filemap[filekey] = img.filename
+            img.save(os.path.join(app.config['UPLOAD_FOLDER'], new_filename))
+        return {"msg": "Successfully uploaded images.", "filekeys": filemap}, 200
     else:
         return {"msg": "No images received. Make sure they are of types {}".format(ALLOWED_EXTENSIONS)}, 400
 
-@app.route('/uploads/<filename>')
-def uploaded_file(filename):
+@app.route('/uploads/<filekey>')
+def uploaded_file(filekey):
+    #TODO: get specific file based on key
     return send_from_directory(app.config['UPLOAD_FOLDER'],
-                               filename)
+                               filekey)
 
 @app.route('/test', methods=['POST'])
 def test():
