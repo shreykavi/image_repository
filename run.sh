@@ -1,6 +1,6 @@
 #Tell the terminal what application to run
-export FLASK_APP=main.py
+export FLASK_APP=app.py
 #Tell the terminal what application to run for windows
-set FLASK_APP=main.py
+set FLASK_APP=app.py
 #Run the application
 flask run
