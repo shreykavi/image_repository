@@ -69,7 +69,7 @@ def get_resource():
 
 ###################### IMAGES ######################
 
-@app.route('/upload/images', methods=['POST'])
+@app.route('/images/upload', methods=['POST'])
 @auth.login_required
 def upload():
     """
@@ -122,10 +122,23 @@ def upload():
     else:
         return {"msg": "No images received. Make sure they are of types {}".format(ALLOWED_EXTENSIONS)}, 400
 
-@app.route('/retrieve/<filekey>')
+@app.route('/images/retrieve/<filekey>')
 @auth.login_required
 def retrieve_file(filekey):
-    #TODO: get specific file based on key
+    """
+        Retrieve one image based on filekey
+    """
+    image = Image.query.filter_by(filekey = filekey).first()
+    filename = "{}.{}".format(image.filekey, image.ext)
+    print(image.filekey)
+    return send_from_directory(app.config['UPLOAD_FOLDER'],
+                               filename)
+
+@app.route('/images/delete/')
+@auth.login_required
+def delete_files():
+    #TODO:  delete files from /upload/
+    #       delete based on permissions
     return send_from_directory(app.config['UPLOAD_FOLDER'],
                                filekey)
 
