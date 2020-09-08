@@ -131,8 +131,14 @@ def retrieve_file(filekey):
     image = Image.query.filter_by(filekey = filekey).first()
     filename = "{}.{}".format(image.filekey, image.ext)
     print(image.filekey)
-    return send_from_directory(app.config['UPLOAD_FOLDER'],
+    if (image.permissions == 'open' or image.permissions == 'public'):
+        return send_from_directory(app.config['UPLOAD_FOLDER'],
                                filename)
+    elif (image.permissions == 'private' and image.username == g.user.username):
+        return send_from_directory(app.config['UPLOAD_FOLDER'],
+                               filename)
+    else:
+        return {"msg": "Insufficient permissions for image."}, 401
 
 @app.route('/images/delete/')
 @auth.login_required
