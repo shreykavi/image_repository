@@ -6,7 +6,7 @@ from flask import Flask, request, redirect, url_for, send_from_directory, g
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from os.path import join, dirname, realpath, abspath
-# from werkzeug.utils import secure_filename
+from werkzeug.utils import secure_filename
 
 from flask_httpauth import HTTPBasicAuth
 auth = HTTPBasicAuth()
@@ -23,7 +23,7 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
 migrate = Migrate(app, db)
 
-from models import Result, User
+from models import Result, User, Image, Permissions
 
 def allowed_file(filename):
     return '.' in filename and \
@@ -33,7 +33,8 @@ def allowed_file(filename):
 def hello():
     return "Welcome to Shrey's Image Repository!"
 
-## AUTH ##
+###################### AUTH ######################
+
 @auth.verify_password
 def verify_password(username, password):
     user = User.query.filter_by(username = username).first()
@@ -59,16 +60,22 @@ def new_user():
     db.session.commit()
     return { 'username': user.username }, 201
 
-@app.route('/user/test')
+@app.route('/user/greet')
 @auth.login_required
 def get_resource():
     return { 'data': 'Hello, %s!' % g.user.username }, 200
+
+###################### AUTH ENDS ######################
+
+###################### IMAGES ######################
 
 @app.route('/upload/images', methods=['POST'])
 @auth.login_required
 def upload():
     """
-        Expected request must have Body->form-data of files (>=1)
+        Expected request Body->form-data:
+            files (>=1)
+            permissions (optional = ['open','public','private]) Default='open'
         Response:
             {
                 "msg": "Successfully uploaded images.", 
@@ -76,8 +83,19 @@ def upload():
             }
     """
     # check if the post request has the files part
+    print(g.user.username)
+    print(g.user.role)
+
     if 'files' not in request.files:
         return {"msg": "No files included in form-data"}, 400
+    print(dir(request))
+    if 'permissions' in request.form:
+        permits = set(item.value for item in Permissions)
+        if request.form.getlist('permissions')[0] not in permits:
+            return {"msg": "Permissions not recognized"}, 400
+        permission = request.form.getlist('permissions')[0]
+    else:
+        permission = 'open'
 
     images = [x for x in request.files.getlist('files') if allowed_file(x.filename)]
 
@@ -85,11 +103,21 @@ def upload():
         filemap = {}
         for img in images:
             # create unique keys/names and send back mapping
-            ext = img.filename.rsplit('.', 1)[1].lower()
+            old_filename = secure_filename(img.filename)
+            ext = old_filename.rsplit('.', 1)[1].lower()
             filekey = str(uuid.uuid4())
             new_filename = "{}.{}".format(filekey, ext)
-            filemap[filekey] = img.filename
+            filemap[filekey] = old_filename
+
+            # add to sql
+            image = Image(
+                filekey=filekey, filename=old_filename, ext=ext, username=g.user.username, permissions=permission
+            )
+            db.session.add(image)
+
+            # save to folder
             img.save(os.path.join(app.config['UPLOAD_FOLDER'], new_filename))
+        db.session.commit()
         return {"msg": "Successfully uploaded images.", "filekeys": filemap}, 200
     else:
         return {"msg": "No images received. Make sure they are of types {}".format(ALLOWED_EXTENSIONS)}, 400
@@ -101,27 +129,7 @@ def retrieve_file(filekey):
     return send_from_directory(app.config['UPLOAD_FOLDER'],
                                filekey)
 
-@app.route('/test', methods=['POST'])
-@auth.login_required
-def test():
-    # Test write to DB
-    errors = []
-    try:
-        result = Result(
-            url="http://google.com",
-            result_all=0,
-            result_no_stop_words=0
-        )
-        db.session.add(result)
-        db.session.flush()
-        db.session.refresh(result)
-        # result.id
-        db.session.commit()
-    except Exception as e:
-        print(e)
-        errors.append("Unable to add item to database.")
-        print("Unable to add item to database.")
-    return "DONE"
+###################### IMAGES ENDS ######################
 
 if __name__ == '__main__':
     app.run()
