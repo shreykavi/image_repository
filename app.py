@@ -74,7 +74,7 @@ def get_resource():
 def upload():
     """
         Expected request Body->form-data:
-            files (>=1)
+            files ( images >=1 )
             permissions (optional = ['open','public','private]) Default='open'
         Response:
             {
@@ -140,13 +140,35 @@ def retrieve_file(filekey):
     else:
         return {"msg": "Insufficient permissions for image."}, 401
 
-@app.route('/images/delete/')
+@app.route('/images/delete/', methods=['POST'])
 @auth.login_required
 def delete_files():
-    #TODO:  delete files from /upload/
-    #       delete based on permissions
-    return send_from_directory(app.config['UPLOAD_FOLDER'],
-                               filekey)
+    """
+        Deletes files
+        Expected request Body->json:
+            filekeys: []
+    """
+    filekeys = request.json.get('filekeys')
+    if not filekeys:
+        return {"msg": "No filekeys included."}, 400
+
+    images = Image.query.filter(Image.filekey.in_(filekeys)).all()
+
+    if not images:
+        return {"msg": "No images with filekeys"}, 400
+
+    for image in images: #Iterate all and check permissions before deleting any
+        if (image.permissions != 'open' and image.username != g.user.username):
+            return {"msg": "Insufficient permissions"}, 401
+
+    for image in images:
+        path = os.path.join(app.config['UPLOAD_FOLDER'], "{}.{}".format(image.filekey, image.ext))
+        if os.path.exists(path):
+            print("DELETING file")
+            db.session.delete(image)
+            os.remove(path)
+    db.session.commit()
+    return {"msg": "Deleted filekeys"}, 200
 
 ###################### IMAGES ENDS ######################
 
