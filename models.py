@@ -47,7 +47,7 @@ class User(db.Model):
 
     def __init__(self, username):
         self.username = username
-        self.role = str(Role.CUSTOMER) #Default to customer
+        self.role = str(Role.CUSTOMER.value) #Default to customer
 
     def hash_password(self, password):
         self.password_hash = pwd_context.encrypt(password)

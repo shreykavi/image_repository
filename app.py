@@ -23,7 +23,7 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
 migrate = Migrate(app, db)
 
-from models import Result, User, Image, Permissions
+from models import Result, User, Image, Permissions, Role
 
 def allowed_file(filename):
     return '.' in filename and \
@@ -83,12 +83,11 @@ def upload():
             }
     """
     # check if the post request has the files part
-    print(g.user.username)
-    print(g.user.role)
+    # print(g.user.username)
+    # print(g.user.role)
 
     if 'files' not in request.files:
         return {"msg": "No files included in form-data"}, 400
-    print(dir(request))
     if 'permissions' in request.form:
         permits = set(item.value for item in Permissions)
         if request.form.getlist('permissions')[0] not in permits:
@@ -130,7 +129,6 @@ def retrieve_file(filekey):
     """
     image = Image.query.filter_by(filekey = filekey).first()
     filename = "{}.{}".format(image.filekey, image.ext)
-    print(image.filekey)
     if (image.permissions == 'open' or image.permissions == 'public'):
         return send_from_directory(app.config['UPLOAD_FOLDER'],
                                filename)
@@ -164,11 +162,25 @@ def delete_files():
     for image in images:
         path = os.path.join(app.config['UPLOAD_FOLDER'], "{}.{}".format(image.filekey, image.ext))
         if os.path.exists(path):
-            print("DELETING file")
             db.session.delete(image)
             os.remove(path)
     db.session.commit()
     return {"msg": "Deleted filekeys"}, 200
+
+@app.route('/images/delete/all', methods=['POST'])
+@auth.login_required
+def delete_all_files():
+    if (g.user.role != Role.ADMIN.value):
+        return {"msg": "Insufficient permissions"}, 401
+    images = Image.query.all()
+    print(images)
+    for image in images:
+        path = os.path.join(app.config['UPLOAD_FOLDER'], "{}.{}".format(image.filekey, image.ext))
+        if os.path.exists(path):
+            db.session.delete(image)
+            os.remove(path)
+    db.session.commit()
+    return {"msg": "Deleted all images!!"}, 200
 
 ###################### IMAGES ENDS ######################
 
